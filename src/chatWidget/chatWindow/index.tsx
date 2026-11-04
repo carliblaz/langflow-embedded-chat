@@ -1,10 +1,11 @@
-import { Send } from "lucide-react";
+import { RotateCcw, Send } from "lucide-react";
 import { extractMessageFromOutput, getAnimationOrigin, getChatPosition, parseAdditionalHeaders } from "../utils";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessageType } from "../../types/chatWidget";
 import ChatMessage from "./chatMessage";
 import { sendMessage } from "../../controllers";
 import ChatMessagePlaceholder from "../../chatPlaceholder";
+import TermsGate from "./termsGate";
 
 export default function ChatWindow({
   api_key,
@@ -37,7 +38,27 @@ export default function ChatWindow({
   height = 650,
   tweaks,
   sessionId,
-  additional_headers
+  additional_headers,
+  welcome_message,
+  starter_prompts = [],
+  starter_prompt_style,
+  terms_required = false,
+  terms_accepted = true,
+  terms_message,
+  terms_checkbox_label,
+  terms_accept_label,
+  terms_style,
+  onAcceptTerms,
+  bot_avatar,
+  user_avatar,
+  avatar_size = 32,
+  avatar_style,
+  resetCount = 0,
+  onReset,
+  show_reset_button = false,
+  reset_button_title = "Start a new chat",
+  reset_button_style,
+  show_subtitle = true,
 }: {
   api_key?: string;
   output_type: string,
@@ -70,7 +91,26 @@ export default function ChatWindow({
   height?: number;
   sessionId: React.MutableRefObject<string>;
   additional_headers?: { [key: string]: string } | string;
-
+  welcome_message?: string;
+  starter_prompts?: string[];
+  starter_prompt_style?: React.CSSProperties;
+  terms_required?: boolean;
+  terms_accepted?: boolean;
+  terms_message?: string;
+  terms_checkbox_label?: string;
+  terms_accept_label?: string;
+  terms_style?: React.CSSProperties;
+  onAcceptTerms?: () => void;
+  bot_avatar?: string;
+  user_avatar?: string;
+  avatar_size?: number;
+  avatar_style?: React.CSSProperties;
+  resetCount?: number;
+  onReset?: () => void;
+  show_reset_button?: boolean;
+  reset_button_title?: string;
+  reset_button_style?: React.CSSProperties;
+  show_subtitle?: boolean;
 }) {
   const [value, setValue] = useState<string>("");
   const ref = useRef<HTMLDivElement>(null);
@@ -96,13 +136,45 @@ export default function ChatWindow({
   // Ensure additional_headers is always an object
   const parsedHeaders = useMemo(() => parseAdditionalHeaders(additional_headers), [additional_headers]);
 
+  // The chat is locked until the visitor has accepted the terms (when terms are required).
+  const locked = terms_required && !terms_accepted;
+  // Starter prompts disappear once the visitor has sent anything.
+  const hasUserMessage = messages.some((m) => m.isSend);
+  const showStarters = !locked && !hasUserMessage && starter_prompts.length > 0;
+
+  // Every reset bumps resetCount. Replies to requests sent before the reset are
+  // ignored, so an answer to the old conversation can't land in the new one.
+  const resetGeneration = useRef(resetCount);
+  useEffect(() => {
+    resetGeneration.current = resetCount;
+    setValue("");
+    setSendingMessage(false);
+  }, [resetCount]);
+
+  const avatarProps = { bot_avatar, user_avatar, avatar_size, avatar_style };
+  // Show the avatar only on the first message of a run from the same sender.
+  function showAvatarAt(index: number) {
+    if (index === 0) return !(welcome_message && !messages[0].isSend);
+    return messages[index - 1].isSend !== messages[index].isSend;
+  }
+  const lastIsBot = messages.length > 0
+    ? !messages[messages.length - 1].isSend
+    : !!welcome_message;
+
   function handleClick() {
-    if (value && value.trim() !== "") {
-      addMessage({ message: value, isSend: true });
+    submitMessage(value);
+  }
+
+  function submitMessage(text: string) {
+    if (locked || sendingMessage) return;
+    if (text && text.trim() !== "") {
+      addMessage({ message: text, isSend: true });
       setSendingMessage(true);
       setValue("");
-      sendMessage(hostUrl, flowId, value, input_type, output_type, sessionId, output_component, tweaks, api_key, parsedHeaders)
+      const generation = resetGeneration.current;
+      sendMessage(hostUrl, flowId, text, input_type, output_type, sessionId, output_component, tweaks, api_key, parsedHeaders)
         .then((res) => {
+          if (resetGeneration.current !== generation) return;
           if (
             res.data &&
             res.data.outputs &&
@@ -151,25 +223,18 @@ export default function ChatWindow({
           setSendingMessage(false);
         })
         .catch((err) => {
+          if (resetGeneration.current !== generation) return;
           const response = err.response;
+          let errorText = "Something went wrong. Please try again.";
           if (err.code === "ERR_NETWORK") {
-            updateLastMessage({
-              message: "Network error",
-              isSend: false,
-              error: true,
-            });
-          } else if (
-            response &&
-            response.status === 500 &&
-            response.data &&
-            response.data.detail
-          ) {
-            updateLastMessage({
-              message: response.data.detail,
-              isSend: false,
-              error: true,
-            });
+            errorText = "Network error";
+          } else if (response && response.data && typeof response.data.detail === "string") {
+            errorText = response.data.detail;
+          } else if (response && response.status) {
+            errorText = `Request failed (${response.status})`;
           }
+          // Append the error instead of replacing the visitor's own message.
+          addMessage({ message: errorText, isSend: false, error: true });
           console.error(err);
           setSendingMessage(false);
         });
@@ -205,7 +270,22 @@ export default function ChatWindow({
         className="cl-window"
       >
         <div className="cl-header">
-          {window_title}
+          <div className="cl-header-row">
+            <span>{window_title}</span>
+            {show_reset_button && (
+              <button
+                className="cl-reset-button"
+                style={reset_button_style}
+                title={reset_button_title}
+                aria-label={reset_button_title}
+                disabled={!hasUserMessage}
+                onClick={() => onReset && onReset()}
+              >
+                <RotateCcw />
+              </button>
+            )}
+          </div>
+          {show_subtitle && (
           <div className="cl-header-subtitle">
             {online ? (
               <>
@@ -219,10 +299,22 @@ export default function ChatWindow({
               </>
             )}
           </div>
+          )}
         </div>
         <div className="cl-messages_container">
+          {welcome_message && (
+            <ChatMessage
+              {...avatarProps}
+              bot_message_style={bot_message_style}
+              message={welcome_message}
+              isSend={false}
+              isWelcome={true}
+            />
+          )}
           {messages.map((message, index) => (
             <ChatMessage
+              {...avatarProps}
+              show_avatar={showAvatarAt(index)}
               bot_message_style={bot_message_style}
               user_message_style={user_message_style}
               error_message_style={error_message_style}
@@ -232,11 +324,44 @@ export default function ChatWindow({
               error={message.error}
             />
           ))}
+          {showStarters && (
+            <div
+              className="cl-starters"
+              style={bot_avatar ? { paddingLeft: `calc(${avatar_size}px + 1rem)` } : undefined}
+            >
+              {starter_prompts.map((prompt) => (
+                <button
+                  key={prompt}
+                  className="cl-starter"
+                  style={starter_prompt_style}
+                  disabled={sendingMessage}
+                  onClick={() => submitMessage(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          )}
           {sendingMessage && (
-            <ChatMessagePlaceholder bot_message_style={bot_message_style} />
+            <ChatMessagePlaceholder
+              bot_message_style={bot_message_style}
+              bot_avatar={bot_avatar}
+              avatar_size={avatar_size}
+              avatar_style={avatar_style}
+              show_avatar={!lastIsBot}
+            />
           )}
           <div ref={lastMessage}></div>
         </div>
+        {locked ? (
+          <TermsGate
+            terms_message={terms_message || "Please accept the terms of use before starting the chat."}
+            terms_checkbox_label={terms_checkbox_label}
+            terms_accept_label={terms_accept_label}
+            terms_style={terms_style}
+            onAccept={() => onAcceptTerms && onAcceptTerms()}
+          />
+        ) : (
         <div style={input_container_style} className="cl-input_container">
           <input
             value={value}
@@ -267,6 +392,7 @@ export default function ChatWindow({
             />
           </button>
         </div>
+        )}
       </div>
     </div>
   );

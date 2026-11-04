@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ChatTrigger from "./chatTrigger";
 import ChatWindow from "./chatWindow";
 import { ChatMessageType } from "../types/chatWidget";
-import { parseAdditionalHeaders } from "./utils";
+import { normalizePersistMode, parseAdditionalHeaders, parseStarterPrompts, readHistory, readTermsAccepted, writeHistory, writeTermsAccepted } from "./utils";
+import { onboardingStyles } from "./onboardingStyles";
 const { v4: uuidv4 } = require('uuid');
 
 export default function ChatWidget({
@@ -34,6 +35,25 @@ export default function ChatWidget({
   additional_headers,
   session_id,
   start_open=false,
+  welcome_message,
+  starter_prompts,
+  starter_prompt_style,
+  terms_required = false,
+  terms_message,
+  terms_checkbox_label,
+  terms_accept_label,
+  terms_version,
+  terms_style,
+  bot_avatar,
+  user_avatar,
+  avatar_size,
+  avatar_style,
+  show_reset_button,
+  reset_button_title,
+  reset_button_style,
+  persist_history,
+  history_ttl,
+  show_subtitle = true,
 }: {
   api_key?: string;
   input_value: string,
@@ -64,14 +84,73 @@ export default function ChatWidget({
   additional_headers?: { [key: string]: string } | string;
   session_id?: string;
   start_open?: boolean;
+  welcome_message?: string;
+  starter_prompts?: string[] | string;
+  starter_prompt_style?: React.CSSProperties;
+  terms_required?: boolean;
+  terms_message?: string;
+  terms_checkbox_label?: string;
+  terms_accept_label?: string;
+  terms_version?: string;
+  terms_style?: React.CSSProperties;
+  bot_avatar?: string;
+  user_avatar?: string;
+  avatar_size?: number;
+  avatar_style?: React.CSSProperties;
+  show_reset_button?: boolean;
+  reset_button_title?: string;
+  reset_button_style?: React.CSSProperties;
+  persist_history?: string;
+  history_ttl?: number;
+  show_subtitle?: boolean;
 }) {
-  const [open, setOpen] = useState(start_open);
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const sessionId = useRef(session_id ?? uuidv4());
+  // Restore the previous conversation (if persist_history is on) once, on mount.
+  const persistMode = normalizePersistMode(persist_history);
+  const [restored] = useState(() => readHistory(persistMode, flow_id, history_ttl, session_id));
+  const [open, setOpen] = useState(restored ? restored.open : start_open);
+  const [messages, setMessages] = useState<ChatMessageType[]>(restored ? restored.messages : []);
+  const sessionId = useRef(restored?.sessionId ?? session_id ?? uuidv4());
+
+  // Save after every change. A reset also lands here: it empties the messages
+  // and switches the session id, which overwrites the stored conversation.
+  useEffect(() => {
+    writeHistory(persistMode, flow_id, { sessionId: sessionId.current, messages, open });
+  }, [persistMode, flow_id, messages, open]);
   
   // Parse additional_headers if it's a string (can happen when passed as HTML attribute)
   const parsedAdditionalHeaders = useMemo(() => parseAdditionalHeaders(additional_headers), [additional_headers]);
+  const parsedStarterPrompts = useMemo(() => parseStarterPrompts(starter_prompts), [starter_prompts]);
+
+  // Terms acceptance is remembered per flow and per terms_version, so bumping
+  // terms_version asks every visitor to accept again.
+  const [termsAccepted, setTermsAccepted] = useState(() => readTermsAccepted(flow_id, terms_version));
+  function acceptTerms() {
+    writeTermsAccepted(flow_id, terms_version);
+    setTermsAccepted(true);
+  }
   
+  // Reset: empty the conversation and switch to a fresh session id, so the flow's
+  // memory in Langflow starts from scratch too.
+  const [resetCount, setResetCount] = useState(0);
+  const resetChat = useCallback(() => {
+    sessionId.current = uuidv4();
+    setMessages([]);
+    setResetCount((n) => n + 1);
+  }, []);
+
+  // Lets the host page reset the chat:
+  //   window.dispatchEvent(new CustomEvent("langflow-chat-reset"))
+  // or only the widget for one flow:
+  //   window.dispatchEvent(new CustomEvent("langflow-chat-reset", { detail: { flow_id: "..." } }))
+  useEffect(() => {
+    function onResetEvent(e: Event) {
+      const target = (e as CustomEvent).detail?.flow_id;
+      if (!target || target === flow_id) resetChat();
+    }
+    window.addEventListener("langflow-chat-reset", onResetEvent);
+    return () => window.removeEventListener("langflow-chat-reset", onResetEvent);
+  }, [flow_id, resetChat]);
+
   function updateLastMessage(message: ChatMessageType) {
     setMessages((prev) => {
       prev[prev.length - 1] = message;
@@ -2145,7 +2224,7 @@ input::-ms-input-placeholder { /* Microsoft Edge */
 }`
   return (
     <div style={{ position: "relative" }}>
-      <style dangerouslySetInnerHTML={{ __html: styles + markdownBody }}></style>
+      <style dangerouslySetInnerHTML={{ __html: styles + markdownBody + onboardingStyles }}></style>
       <ChatTrigger
         triggerRef={triggerRef}
         open={open}
@@ -2184,6 +2263,26 @@ input::-ms-input-placeholder { /* Microsoft Edge */
         position={chat_position}
         sessionId={sessionId}
         additional_headers={parsedAdditionalHeaders}
+        welcome_message={welcome_message}
+        starter_prompts={parsedStarterPrompts}
+        starter_prompt_style={starter_prompt_style}
+        terms_required={terms_required}
+        terms_accepted={termsAccepted}
+        terms_message={terms_message}
+        terms_checkbox_label={terms_checkbox_label}
+        terms_accept_label={terms_accept_label}
+        terms_style={terms_style}
+        onAcceptTerms={acceptTerms}
+        bot_avatar={bot_avatar}
+        user_avatar={user_avatar}
+        avatar_size={avatar_size}
+        avatar_style={avatar_style}
+        resetCount={resetCount}
+        onReset={resetChat}
+        show_reset_button={show_reset_button}
+        reset_button_title={reset_button_title}
+        reset_button_style={reset_button_style}
+        show_subtitle={show_subtitle}
       />
     </div>
   );

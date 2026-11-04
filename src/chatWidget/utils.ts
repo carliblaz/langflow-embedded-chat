@@ -22,10 +22,10 @@ export function getChatPosition(
 		case "top-right":
 			return { top: - distance - Cheight + "px", left: width+ "px" };
 		case "center-left":
-			return { top: width/2-Cheight/2 + "px", left: -Cwidth - distance + "px" };
+			return { top: height/2-Cheight/2 + "px", left: -Cwidth - distance + "px" };
 		case "center-right":
 			return {
-				top: width/2-Cheight/2 + "px",
+				top: height/2-Cheight/2 + "px",
 				left: width + distance + "px",
 			};
 		case "bottom-right":
@@ -67,7 +67,6 @@ export function getAnimationOrigin(position?:string) {
 }
 
 export function extractMessageFromOutput(output:{type:string, message:any}){
-	console.log(output)
 	const {type, message} = output;
 	if(type === "text") return message;
 	if (type ==="message") return message.text;
@@ -99,4 +98,132 @@ export function parseAdditionalHeaders(
 	
 	// Already an object
 	return additional_headers;
+}
+/**
+ * Accepts a JSON array, a JSON string of an array, or a "|"-separated string
+ * and returns a clean list of non-empty strings.
+ */
+export function parseStarterPrompts(value?: string[] | string): string[] {
+	if (!value) return [];
+	let list: unknown = value;
+	if (typeof value === "string") {
+		const trimmed = value.trim();
+		if (trimmed === "") return [];
+		try {
+			list = JSON.parse(trimmed);
+		} catch {
+			list = trimmed.split("|");
+		}
+	}
+	if (!Array.isArray(list)) return [];
+	return list
+		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.filter((item) => item !== "");
+}
+
+function termsKey(flowId: string, version?: string) {
+	return `langflow-chat:terms:${flowId}:${version || "1"}`;
+}
+
+/** Reads whether the visitor already accepted this version of the terms. */
+export function readTermsAccepted(flowId: string, version?: string): boolean {
+	try {
+		return window.localStorage.getItem(termsKey(flowId, version)) !== null;
+	} catch {
+		return false; // storage blocked (privacy mode, sandboxed iframe, ...)
+	}
+}
+
+/** Remembers the acceptance with a timestamp; silently ignores blocked storage. */
+export function writeTermsAccepted(flowId: string, version?: string) {
+	try {
+		window.localStorage.setItem(termsKey(flowId, version), new Date().toISOString());
+	} catch {
+		/* ignore */
+	}
+}
+
+// ---------- Chat history persistence ----------
+
+export type PersistMode = "none" | "session" | "local";
+
+export type StoredHistory = {
+	sessionId: string;
+	messages: { message: string; isSend: boolean; error?: boolean }[];
+	open: boolean;
+	updatedAt: number;
+};
+
+const MAX_STORED_MESSAGES = 100;
+
+export function normalizePersistMode(value?: string): PersistMode {
+	if (value === "session" || value === "local") return value;
+	if (value === "true") return "session"; // persist_history="true" → per tab
+	return "none";
+}
+
+function getStore(mode: PersistMode): Storage | null {
+	if (mode === "none") return null;
+	try {
+		return mode === "local" ? window.localStorage : window.sessionStorage;
+	} catch {
+		return null; // storage blocked
+	}
+}
+
+function historyKey(flowId: string) {
+	return `langflow-chat:history:${flowId}`;
+}
+
+/**
+ * Returns the saved conversation, or null when there is none, it is older than
+ * ttlMinutes, it is unreadable, or it belongs to a different fixed session id.
+ */
+export function readHistory(
+	mode: PersistMode,
+	flowId: string,
+	ttlMinutes?: number,
+	fixedSessionId?: string
+): StoredHistory | null {
+	const store = getStore(mode);
+	if (!store) return null;
+	try {
+		const raw = store.getItem(historyKey(flowId));
+		if (!raw) return null;
+		const data = JSON.parse(raw) as StoredHistory;
+		if (!data || typeof data.sessionId !== "string" || !Array.isArray(data.messages)) return null;
+		if (ttlMinutes && ttlMinutes > 0 && Date.now() - data.updatedAt > ttlMinutes * 60_000) {
+			store.removeItem(historyKey(flowId));
+			return null;
+		}
+		// The host page chose a session id (e.g. per logged-in user): only restore
+		// history that belongs to it, so one user never sees another's chat.
+		if (fixedSessionId && data.sessionId !== fixedSessionId) return null;
+		return data;
+	} catch {
+		return null;
+	}
+}
+
+export function writeHistory(
+	mode: PersistMode,
+	flowId: string,
+	data: Omit<StoredHistory, "updatedAt">
+) {
+	const store = getStore(mode);
+	if (!store) return;
+	const payload: StoredHistory = {
+		sessionId: data.sessionId,
+		// keep only what is needed to redraw, and only the latest messages
+		messages: data.messages
+			.slice(-MAX_STORED_MESSAGES)
+			.map(({ message, isSend, error }) => ({ message, isSend, ...(error ? { error } : {}) })),
+		open: data.open,
+		updatedAt: Date.now(),
+	};
+	try {
+		store.setItem(historyKey(flowId), JSON.stringify(payload));
+	} catch {
+		/* quota exceeded or blocked: history just isn't saved */
+	}
 }

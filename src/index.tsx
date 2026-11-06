@@ -52,5 +52,10 @@ customElements.define('langflow-chat', r2wc(ChatWidget, {
         persist_history:"string",
         history_ttl:"number",
         show_subtitle:"boolean",
+        language:"string",
+        fallback_language:"string",
+        welcome_message_style:"json",
+        custom_css:"string",
+        custom_css_url:"string",
     },
 }));

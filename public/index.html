@@ -1,15 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
 </head>
 <body style="width: 100vh; height: 100vh; ">
-        <langflow-chat window_title="Langflow Chat" 
-        flow_id="4317421c-d4b5-4a22-bc7b-05e8af053b0e"
-        host_url="http://localhost:7860"
+    <div style="position: fixed; right: 10px; bottom: 10px;">
+    <langflow-chat window_title="Zeleni Kras" 
+        flow_id="8bef7e90-3a24-48f7-9081-a9ab1a3613c5"
+        host_url="https://langflow.dev.ms.arctur.io"
+        api_key="sk-c82-qe2qJrGD4fU97M5NhirVFkxjPNOrO3yGPNkh6SU"
+        welcome_message='{"sl": "Sem vaš virtualni asistent in vam pomagam raziskati zeleno razkošje kraške Slovenije med Alpami in Jadranom, kjer kamen, voda in burja že tisočletja ustvarjajo edinstveno pokrajino. Destinacija Zeleni kras je regija med Postojno, Cerkniškim jezerom, Snežnikom in Brkini, kjer kraški svet, gozdovi, presihajoča jezera in lokalne zgodbe ustvarjajo edinstveno doživetje Slovenije. Skupaj lahko odkrijemo čudovite kraške jame, skrivnostne gozdove, gradove, muzeje, pristne lokalne okuse, aktivnosti na prostem ter številne dogodke v destinaciji. Prosimo upoštevajte, da sem AI asistent, in da informacije so informativne narave, zato priporočam, da preverite aktualne odpiralne čase in razpoložljivosti pri ponudnikih.","en": "I am your virtual assistant, here to help you explore the \"Green Karst\" (Zeleni kras)—a region in Slovenia nestled between the Alps and the Adriatic, where stone, water, and the *bora* wind have spent millennia shaping a unique landscape. The Green Karst destination encompasses the area between Postojna, Lake Cerknica, Mount Snežnik, and the Brkini Hills; here, the karst terrain, vast forests, intermittent lakes, and local lore combine to offer a truly unique Slovenian experience. Together, we can discover magnificent karst caves, mysterious forests, castles, museums, authentic local flavors, outdoor activities, and a wide array of events. Please note that I am an AI assistant and the information provided is for reference purposes only; I therefore recommend verifying current opening hours and availability directly with the service providers."}'
+        starter_prompts='{"sl": ["Kako naj raziskujem Zeleni kras na čim bolj trajnosten način?","Kako naj raziskujem Zeleni kras na čim bolj trajnosten način?","Zanimajo me lokalni ponudniki hrane, domačih izdelkov in doživetij, ki podpirajo lokalno skupnost?","Katere trajnostne aktivnosti lahko doživim med obiskom?","Želim prejeti osebne predloge za trajnostno načrtovanje obiska glede na datum bivanja in lokacijo."], "en": ["How can I explore the Green Karst in the most sustainable way possible?", "How can I explore the Green Karst in the most sustainable way possible?", "I am interested in local providers of food, artisanal products, and experiences that support the local community.", "What sustainable activities can I enjoy during my visit?", "I would like to receive personalized suggestions for planning a sustainable visit, based on my dates of stay and location."]}'
+        terms_required="true"
+        terms_message='{"sl": "Z uporabo tega Bota se strinjate s [splošnimi pogoji](https://www.arctur.si/sl/izjava-o-varstvu-osebnih-podatkov/).", "en":By using this Bot, you agree to the [general terms and conditions](https://www.arctur.si/sl/izjava-o-varstvu-osebnih-podatkov/).}'
+        terms_accept_label='{"sl": "Se strinjam", "en":"I aggree"}'
+        placeholder='{"sl": "Kaj vas zanima?", "en": "What are you interested in?"}'
+        sendingMessage='{"sl": "Razmišljam ....", "en": "I am thinking ...."}'
+        terms_version="1"
+        chat_position="top-left"
+        online_message=""
+        bot_avatar="https://zelenikras.si.novo.arctur.net/assets/images/listek_negative.png"
+        user_avatar="https://zelenikras.si.novo.arctur.net/assets/images/user.png"
+        avatar_size="32"
+        avatar_style='{"backgroundColor":"#dbeafe","color":"#1e40af"}'
+        show_subtitle="false"
+        persist_history="session"
+        show_reset_button="true"
         width="700"
-        ></langflow-chat>
+        custom_css=".cl-window {border-radius: 0 !important;} .cl-header {background: rgb(83 190 148); color: #FFFFFF} .cl-reset-button svg path { stroke: #FFFFFF; } .cl-bot_message {border-radius: 5px; border-top-left-radius: 0;}.welcome .cl-bot_message p { font-size: 14px; } .cl-trigger { background-color: rgb(83 190 148); } .cl-trigger:hover {background-color: rgb(83 190 148);} .cl-user_message {background-color: rgb(83 190 148);} .cl-starter { border: 1px solid rgb(83 190 148); border-radius: 5px; color: rgb(83 190 148);} .cl-starter:hover:not(:disabled) {background-color: rgb(83 190 148);} .cl-send-icon svg polygon { stroke: rgb(83 190 148);} .cl-notsending-message {stroke: rgb(83 190 148);}"
+    ></langflow-chat>
+    </div>
 </body>
 </html>

@@ -59,6 +59,7 @@ export default function ChatWindow({
   reset_button_title = "Start a new chat",
   reset_button_style,
   show_subtitle = true,
+  welcome_message_style,
 }: {
   api_key?: string;
   output_type: string,
@@ -111,6 +112,7 @@ export default function ChatWindow({
   reset_button_title?: string;
   reset_button_style?: React.CSSProperties;
   show_subtitle?: boolean;
+  welcome_message_style?: React.CSSProperties;
 }) {
   const [value, setValue] = useState<string>("");
   const ref = useRef<HTMLDivElement>(null);
@@ -305,7 +307,8 @@ export default function ChatWindow({
           {welcome_message && (
             <ChatMessage
               {...avatarProps}
-              bot_message_style={bot_message_style}
+              className="cl-welcome_message"
+              bot_message_style={{ ...bot_message_style, ...welcome_message_style }}
               message={welcome_message}
               isSend={false}
               isWelcome={true}

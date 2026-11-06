@@ -14,6 +14,7 @@ export type ChatMessageType = AvatarProps & {
     error_message_style?: React.CSSProperties;
     show_avatar?: boolean;
     isWelcome?: boolean;
+    className?: string;
   };
 
 

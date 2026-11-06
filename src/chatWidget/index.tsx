@@ -4,6 +4,7 @@ import ChatWindow from "./chatWindow";
 import { ChatMessageType } from "../types/chatWidget";
 import { normalizePersistMode, parseAdditionalHeaders, parseStarterPrompts, readHistory, readTermsAccepted, writeHistory, writeTermsAccepted } from "./utils";
 import { onboardingStyles } from "./onboardingStyles";
+import { pickLanguage, useLanguage } from "./i18n";
 const { v4: uuidv4 } = require('uuid');
 
 export default function ChatWidget({
@@ -54,6 +55,11 @@ export default function ChatWidget({
   persist_history,
   history_ttl,
   show_subtitle = true,
+  language,
+  fallback_language,
+  welcome_message_style,
+  custom_css,
+  custom_css_url,
 }: {
   api_key?: string;
   input_value: string,
@@ -103,6 +109,11 @@ export default function ChatWidget({
   persist_history?: string;
   history_ttl?: number;
   show_subtitle?: boolean;
+  language?: string;
+  fallback_language?: string;
+  welcome_message_style?: React.CSSProperties;
+  custom_css?: string;
+  custom_css_url?: string;
 }) {
   // Restore the previous conversation (if persist_history is on) once, on mount.
   const persistMode = normalizePersistMode(persist_history);
@@ -119,7 +130,13 @@ export default function ChatWidget({
   
   // Parse additional_headers if it's a string (can happen when passed as HTML attribute)
   const parsedAdditionalHeaders = useMemo(() => parseAdditionalHeaders(additional_headers), [additional_headers]);
-  const parsedStarterPrompts = useMemo(() => parseStarterPrompts(starter_prompts), [starter_prompts]);
+  // Every text option can be a plain string or a {"en": "...", "sl": "..."} map.
+  const lang = useLanguage(language);
+  const t = (value?: string) => pickLanguage<string>(value, lang, fallback_language);
+  const parsedStarterPrompts = useMemo(
+    () => parseStarterPrompts(pickLanguage<string[] | string>(starter_prompts, lang, fallback_language)),
+    [starter_prompts, lang, fallback_language]
+  );
 
   // Terms acceptance is remembered per flow and per terms_version, so bumping
   // terms_version asks every visitor to accept again.
@@ -2225,6 +2242,9 @@ input::-ms-input-placeholder { /* Microsoft Edge */
   return (
     <div style={{ position: "relative" }}>
       <style dangerouslySetInnerHTML={{ __html: styles + markdownBody + onboardingStyles }}></style>
+      {/* Your own CSS, loaded inside the widget's shadow DOM after the built-in styles so it wins. */}
+      {custom_css_url && <link rel="stylesheet" href={custom_css_url} />}
+      {custom_css && <style dangerouslySetInnerHTML={{ __html: custom_css }}></style>}
       <ChatTrigger
         triggerRef={triggerRef}
         open={open}
@@ -2245,13 +2265,13 @@ input::-ms-input-placeholder { /* Microsoft Edge */
         chat_window_style={chat_window_style}
         error_message_style={error_message_style}
         send_button_style={send_button_style}
-        placeholder={placeholder}
+        placeholder={t(placeholder)}
         input_style={input_style}
         online={online}
-        online_message={online_message}
-        offline_message={offline_message}
-        placeholder_sending={placeholder_sending}
-        window_title={window_title}
+        online_message={t(online_message)}
+        offline_message={t(offline_message)}
+        placeholder_sending={t(placeholder_sending)}
+        window_title={t(window_title)}
         input_container_style={input_container_style}
         tweaks={tweaks}
         flowId={flow_id}
@@ -2263,14 +2283,15 @@ input::-ms-input-placeholder { /* Microsoft Edge */
         position={chat_position}
         sessionId={sessionId}
         additional_headers={parsedAdditionalHeaders}
-        welcome_message={welcome_message}
+        welcome_message={t(welcome_message)}
+        welcome_message_style={welcome_message_style}
         starter_prompts={parsedStarterPrompts}
         starter_prompt_style={starter_prompt_style}
         terms_required={terms_required}
         terms_accepted={termsAccepted}
-        terms_message={terms_message}
-        terms_checkbox_label={terms_checkbox_label}
-        terms_accept_label={terms_accept_label}
+        terms_message={t(terms_message)}
+        terms_checkbox_label={t(terms_checkbox_label)}
+        terms_accept_label={t(terms_accept_label)}
         terms_style={terms_style}
         onAcceptTerms={acceptTerms}
         bot_avatar={bot_avatar}
@@ -2280,7 +2301,7 @@ input::-ms-input-placeholder { /* Microsoft Edge */
         resetCount={resetCount}
         onReset={resetChat}
         show_reset_button={show_reset_button}
-        reset_button_title={reset_button_title}
+        reset_button_title={t(reset_button_title)}
         reset_button_style={reset_button_style}
         show_subtitle={show_subtitle}
       />

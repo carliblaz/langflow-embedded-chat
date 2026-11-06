@@ -17,6 +17,7 @@ export default function ChatMessage({
   avatar_style,
   show_avatar = true,
   isWelcome = false,
+  className,
 }: ChatMessageType) {
   const avatarValue = isSend ? user_avatar : bot_avatar;
   const avatar = avatarValue ? (
@@ -35,7 +36,9 @@ export default function ChatMessage({
   return (
     <div
       className={
-        "cl-chat-message " + (isSend ? " cl-justify-end" : " cl-justify-start") + (isWelcome ? " welcome" : " ")
+        "cl-chat-message " + (isSend ? " cl-justify-end" : " cl-justify-start") +
+        (isWelcome ? " welcome" : "") +
+        (className ? " " + className : "")
       }
     >
       {!isSend && avatar}
